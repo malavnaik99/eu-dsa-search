@@ -26,7 +26,7 @@ commercial or non-commercial purposes; this dataset only re-splits the official 
 
 if __name__ == "__main__":
     api = HfApi()
-    api.create_repo(REPO, repo_type="dataset", exist_ok=True)
+    api.create_repo(REPO, repo_type="dataset", private=True, exist_ok=True)  # public after Malav reviews it
     open("data/README.md", "w").write(CARD)
     for local, remote in [("data/chunks.jsonl", "chunks.jsonl"), ("eval/questions.json", "questions.json"), ("data/README.md", "README.md")]:
         api.upload_file(path_or_fileobj=local, path_in_repo=remote, repo_id=REPO, repo_type="dataset")
