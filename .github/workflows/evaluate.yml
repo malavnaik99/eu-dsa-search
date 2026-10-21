@@ -1,0 +1,16 @@
+# Compares keyword (BM25), semantic and hybrid search on the 25 test questions.
+name: Evaluate search
+on: workflow_dispatch
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    env:
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q beautifulsoup4 lxml rank_bm25 sentence-transformers
+      - run: python build_corpus.py && python eval/evaluate.py
