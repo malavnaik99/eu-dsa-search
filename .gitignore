@@ -1,0 +1,5 @@
+__pycache__/
+data/chunks.jsonl
+data/README.md
+out/
+node_modules/

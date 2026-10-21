@@ -1,0 +1,16 @@
+# Tests the parser, rebuilds the chunks from the saved official text and publishes them to Hugging Face.
+name: Build dataset
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q beautifulsoup4 lxml huggingface_hub
+      - run: python -m unittest discover -s tests
+      - run: python build_corpus.py && python publish_dataset.py
