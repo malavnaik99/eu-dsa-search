@@ -10,10 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: |
+      - name: Download (EU Publications Office CELLAR, official repository behind EUR-Lex)
+        run: |
           mkdir -p data
-          curl -sSfL -A "Mozilla/5.0 (eu-dsa-search; github.com/malavnaik99)" \
-            "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32022R2065" -o data/dsa_en.html
-          ls -la data; grep -c 'id="art_' data/dsa_en.html || true; head -c 600 data/dsa_en.html
+          UA="eu-dsa-search (github.com/malavnaik99/eu-dsa-search)"
+          try() { code=$(curl -sSL -A "$UA" -H "Accept: $2" -H "Accept-Language: eng" -o /tmp/f -w '%{http_code}' "$1"); n=$(grep -o 'id="art_[0-9]*"' /tmp/f | sort -u | wc -l); echo "$code $(wc -c </tmp/f) bytes, $n articles <- $1 [$2]"; [ "$n" -gt 80 ] && cp /tmp/f data/dsa_en.html; }
+          for acc in "application/xhtml+xml" "text/html"; do
+            [ -s data/dsa_en.html ] || try "https://publications.europa.eu/resource/celex/32022R2065" "$acc"
+          done
+          [ -s data/dsa_en.html ] || try "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32022R2065" "text/html"
+          [ -s data/dsa_en.html ] || { echo "No usable copy found"; head -c 1500 /tmp/f; exit 1; }
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/dsa_en.html && git commit -m "EUR-Lex text of Regulation (EU) 2022/2065 (DSA), fetched $(date -u +%F)" && git push
+          git add data/dsa_en.html && git commit -m "Official text of Regulation (EU) 2022/2065 (DSA), fetched $(date -u +%F). Source: EUR-Lex / Publications Office, (c) European Union" && git push
