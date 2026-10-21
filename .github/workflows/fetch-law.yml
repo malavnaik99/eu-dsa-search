@@ -1,0 +1,19 @@
+# Downloads the official English text of the Digital Services Act (Regulation (EU) 2022/2065) from EUR-Lex
+# and saves it in the repo, so the parser and its tests always work from the same copy.
+# Source: EUR-Lex, © European Union. Reuse of EUR-Lex legal documents is allowed for commercial or non-commercial purposes.
+name: Fetch the law text
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p data
+          curl -sSfL -A "Mozilla/5.0 (eu-dsa-search; github.com/malavnaik99)" \
+            "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32022R2065" -o data/dsa_en.html
+          ls -la data; grep -c 'id="art_' data/dsa_en.html || true; head -c 600 data/dsa_en.html
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/dsa_en.html && git commit -m "EUR-Lex text of Regulation (EU) 2022/2065 (DSA), fetched $(date -u +%F)" && git push
