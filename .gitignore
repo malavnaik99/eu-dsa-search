@@ -8,3 +8,4 @@ space/chunks.json
 space/embeddings.bin
 space/eval_browser_model.json
 space/package*.json
+kaggle/notebook.*

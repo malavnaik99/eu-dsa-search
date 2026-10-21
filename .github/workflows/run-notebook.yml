@@ -1,0 +1,35 @@
+# Runs the search evaluation (eval/evaluate.py) as a Kaggle notebook and prints its results.
+name: Run Kaggle notebook
+on: workflow_dispatch
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KERNEL: malavnaik/searching-the-eu-digital-services-act
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q --upgrade kaggle jupytext ipykernel
+      - name: Push to Kaggle
+        run: |
+          # the Kaggle setup cell goes right after the title cell
+          python -c "
+          s = open('eval/evaluate.py').read(); i = s.index('# %%\n', 1)
+          open('kaggle/notebook.py', 'w').write(s[:i] + open('kaggle/setup_cell.py').read() + s[i:])"
+          jupytext --to ipynb --set-kernel python3 kaggle/notebook.py -o kaggle/notebook.ipynb
+          kaggle kernels push -p kaggle
+      - name: Wait for Kaggle to finish
+        run: |
+          sleep 60
+          while true; do
+            s=$(kaggle kernels status "$KERNEL" 2>&1 | tr 'A-Z' 'a-z'); echo "$(date -u +%H:%M) $s"
+            case "$s" in *complete*) break;; *error*|*cancel*) exit 1;; esac
+            sleep 60
+          done
+      - name: Download outputs
+        if: always()
+        run: |
+          mkdir -p out && kaggle kernels output "$KERNEL" -p out || true
+          ls -laR out
+          cat out/out/eval.json out/eval.json 2>/dev/null || tail -c 4000 out/*.log 2>/dev/null || true
