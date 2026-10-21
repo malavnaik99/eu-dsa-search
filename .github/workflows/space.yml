@@ -1,0 +1,26 @@
+# Builds the browser search index with the demo's own model and publishes the static demo (private until approved).
+name: Publish demo
+on: workflow_dispatch
+jobs:
+  space:
+    runs-on: ubuntu-latest
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: pip install -q beautifulsoup4 lxml huggingface_hub && python build_corpus.py
+      - working-directory: space
+        run: npm install --silent @huggingface/transformers@3.0.2 && node embed.mjs ../data/chunks.jsonl ../eval/questions.json
+      - shell: python
+        run: |
+          from huggingface_hub import HfApi
+          api, s = HfApi(), "Malavnaik/ask-the-dsa"
+          api.create_repo(s, repo_type="space", space_sdk="static", private=True, exist_ok=True)
+          api.upload_folder(repo_id=s, repo_type="space", folder_path="space",
+                            allow_patterns=["index.html", "README.md", "chunks.json", "embeddings.bin", "eval_browser_model.json"])
+          print("https://huggingface.co/spaces/" + s)

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask the EU Digital Services Act</title>
+<style>
+  :root { --text:#1f2328; --muted:#59636e; --bg:#fff; --card:#f6f8fa; --line:#d0d7de; --link:#0b57d0; --mark:#fff3b0; }
+  @media (prefers-color-scheme: dark) { :root { --text:#e6e6e6; --muted:#a0a7b0; --bg:#111418; --card:#1a1f25; --line:#2a2f36; --link:#8ab4f8; --mark:#5a4b00; } }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:44rem; margin:0 auto; padding:1.25rem 1rem 3rem; }
+  a { color:var(--link); }
+  .note { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.6rem .8rem; font-size:.9rem; }
+  form { display:flex; gap:.5rem; flex-wrap:wrap; }
+  input { flex:1 1 16rem; font:inherit; padding:.5rem; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--text); }
+  button { font:inherit; padding:.45rem .8rem; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--text); cursor:pointer; }
+  .examples button { margin:.25rem .25rem 0 0; font-size:.85rem; }
+  .result { border:1px solid var(--line); border-radius:8px; padding:.7rem .9rem; margin:.9rem 0; }
+  .result h2 { font-size:1.05rem; margin:0 0 .15rem; }
+  .muted { color:var(--muted); font-size:.85rem; }
+  blockquote { margin:.5rem 0 0; padding:.4rem .6rem; background:var(--mark); border-radius:4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Ask the EU Digital Services Act</h1>
+  <p class="note"><strong>Not legal advice.</strong> Ask a question in plain English and this finds the articles of the
+    <a href="https://eur-lex.europa.eu/eli/reg/2022/2065/oj/eng">Digital Services Act (Regulation (EU) 2022/2065)</a> most likely to answer it,
+    and quotes the matching paragraph. It only quotes the law; it never writes its own answer. Runs in your browser: nothing you type is sent anywhere.
+    By <a href="https://malavnaik99.github.io">Malav Naik</a>.</p>
+  <form id="f">
+    <label for="q" class="muted" style="flex-basis:100%">Your question</label>
+    <input id="q" maxlength="300" placeholder="e.g. Does a platform have to explain why it removed my post?" required>
+    <button id="go" type="submit" disabled>Loading search model…</button>
+  </form>
+  <div class="examples" aria-label="Example questions">
+    <button type="button">What is the maximum fine for a very large platform?</button>
+    <button type="button">Can platforms show ads to children based on profiling?</button>
+    <button type="button">How can users report illegal content?</button>
+    <button type="button">Can researchers get access to platform data?</button>
+  </div>
+  <div id="out" aria-live="polite"></div>
+  <p class="muted">Source: <a href="https://eur-lex.europa.eu/eli/reg/2022/2065/oj/eng">EUR-Lex</a>, © European Union. Only the Official Journal text is authentic.
+    In a test on 25 questions, the right article was in the top 3 results for <span id="score">most</span> of them, so always read the linked article itself.</p>
+</main>
+<script type="module">
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2";
+const $ = id => document.getElementById(id), DIM = 384, URL = "https://eur-lex.europa.eu/eli/reg/2022/2065/oj/eng#art_";
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let chunks, vecs, embed;
+try {
+  [chunks, vecs, embed] = await Promise.all([
+    fetch("chunks.json").then(r => r.json()),
+    fetch("embeddings.bin").then(r => r.arrayBuffer()).then(b => new Float32Array(b)),
+    pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", { dtype: "q8" }),
+  ]);
+  fetch("eval_browser_model.json").then(r => r.json()).then(e => $("score").textContent = Math.round(e["recall@3"] * 100) + "%").catch(() => {});
+  $("go").textContent = "Search"; $("go").disabled = false;
+} catch (e) {
+  $("go").textContent = "Could not load"; $("out").textContent = "⚠️ " + (e && e.message ? e.message : e);
+}
+document.querySelectorAll(".examples button").forEach(b => b.onclick = () => { $("q").value = b.textContent; search(); });
+$("f").onsubmit = e => { e.preventDefault(); search(); };
+
+async function search() {
+  const q = $("q").value.trim().slice(0, 300);
+  if (!q || !embed) return;
+  const v = (await embed(q, { pooling: "mean", normalize: true })).data;
+  const best = new Map();  // article -> best chunk
+  chunks.forEach((c, i) => {
+    let s = 0; for (let d = 0; d < DIM; d++) s += v[d] * vecs[i * DIM + d];
+    if (!best.has(c.a) || s > best.get(c.a).s) best.set(c.a, { s, c });
+  });
+  const top = [...best.values()].sort((x, y) => y.s - x.s).slice(0, 3);
+  $("out").innerHTML = top.map(({ c }) => `<div class="result">
+      <h2><a href="${URL}${c.a}" target="_blank" rel="noopener">Article ${c.a}: ${esc(c.t)}</a></h2>
+      <div class="muted">${esc(c.c)}${c.p ? ` · paragraph ${esc(c.p)}` : ""}</div>
+      <blockquote>${esc(c.x)}</blockquote></div>`).join("");
+}
+</script>
+</body>
+</html>
