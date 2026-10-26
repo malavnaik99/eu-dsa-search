@@ -1,0 +1,19 @@
+# Precomputes keyword vs vector top-3 results for the 25 test questions (out/sandbox.json) for the sandbox on malavnaik.com.
+name: Sandbox examples
+on: workflow_dispatch
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: |
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q beautifulsoup4 lxml rank_bm25 sentence-transformers
+      - run: python build_corpus.py && python eval/sandbox_examples.py && ls -la out
+      - uses: actions/upload-artifact@v4
+        with: { name: sandbox-examples, path: out/sandbox.json }
