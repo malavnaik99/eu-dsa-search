@@ -1,6 +1,6 @@
 """Precompute keyword (BM25) vs vector (all-MiniLM-L6-v2) top-3 articles for the 25 test questions,
 for the comparison sandbox on malavnaik.com. Uses the same documents, tokenizer and model as eval/evaluate.py."""
-import json, re
+import json, os, re
 
 import numpy as np
 from rank_bm25 import BM25Okapi
@@ -42,5 +42,6 @@ for item in questions:
 hits = {n: sum(any(a["article"] in r["expected"] for a in r[n]) for r in examples) for n in rankers}
 print("top-3 hits out of", len(examples), hits)
 assert hits["keyword"] == 17 and hits["vector"] == 21, "should match the published evaluation (68% and 84% in the top 3)"
+os.makedirs("out", exist_ok=True)
 json.dump({"source": "malavnaik99/eu-dsa-search eval/sandbox_examples.py; text: EUR-Lex, © European Union",
            "hits_top3": hits, "examples": examples}, open("out/sandbox.json", "w"), ensure_ascii=False, separators=(",", ":"))
